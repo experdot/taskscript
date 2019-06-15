@@ -16,8 +16,16 @@ class Task {
         return task;
     }
 
+    static if(value: boolean, trueActionOrTask?: Function | Task, falseActionOrTask?: Function | Task) {
+        return Task.startNew().if(value, trueActionOrTask, falseActionOrTask);
+    }
+
     static for(startIndex: number, end: number, increment, actionOrTask?: Function | Task) {
         return Task.startNew(actionOrTask).for(startIndex, end, increment);
+    }
+
+    static setValue(value: any) {
+        return Task.startNew().setValue(value);
     }
 
     constructor(action?: Function) {
@@ -43,16 +51,19 @@ class Task {
     }
 
     next(actionOrTask: Function | Task) {
-        if (!this.tasks) {
-            this.tasks = [];
-        }
-
         let task: Task;
         if (actionOrTask instanceof Task) {
             task = actionOrTask;
         }
-        else {
+        else if (actionOrTask instanceof Function) {
             task = new Task(actionOrTask);
+        }
+        else {
+            return;
+        }
+
+        if (!this.tasks) {
+            this.tasks = [];
         }
 
         if (this.tasks.length === 0) {
@@ -61,6 +72,16 @@ class Task {
         }
         else {
             this.tasks.push(task);
+        }
+        return this;
+    }
+
+    if(value: boolean, trueActionOrTask?: Function | Task, falseActionOrTask?: Function | Task) {
+        if (value) {
+            this.next(trueActionOrTask);
+        }
+        else {
+            this.next(falseActionOrTask);
         }
         return this;
     }
@@ -86,27 +107,41 @@ class Task {
         return this;
     }
 
+    value: any;
+
+    setValue(value: any) {
+        this.next(() => {
+            this.value = value;
+        });
+        return this;
+    }
+
+    getValue() {
+        return this.value;
+    }
+
+    assignTo(array: any[], index: number) {
+        this.next(() => {
+            array[index] = this.value;
+        });
+        return this;
+    }
 }
 
 // Hello world
-const log = Task.startNew((...args) => {
-    console.log(...args);
-});
+const log = Task.startNew(console.log);
 log.run("Hello").run("World");
 
 // For loop
-Task.for(0, 10, 1, log.startNew().next(log.startNew())).run();
+Task.for(0, 10, 1, log.startNew()).run();
 
 // Bubble sort
 const exchange = Task.startNew((array: [], i: number, j: number) => {
-    if (array[i] < array[j]) {
-        const temp = array[i];
-        array[i] = array[j];
-        array[j] = temp;
-    }
+    Task.if(array[i] < array[j], Task.setValue(array[i]).next(Task.setValue(array[j]).assignTo(array, i)).assignTo(array, j)).run();
 });
 
 const bubble = Task.startNew((array: []) => {
-    Task.for(0, array.length, 1, Task.for(0, array.length, 1, exchange.startNew().next(log))).next(log).run(array);
+    Task.for(0, array.length, 1, Task.for(0, array.length, 1, exchange.startNew().next(log))).next(() => log.run("最终结果：")).next(log).run(array);
 });
-bubble.run([0, 2, 1, 5, 3, 4]);
+
+bubble.run([4, 0, 1, 5, 3, 2]);
