@@ -20,7 +20,7 @@ class Task {
         return Task.startNew().if(value, trueActionOrTask, falseActionOrTask);
     }
 
-    static for(startIndex: number, end: number, increment, actionOrTask?: Function | Task) {
+    static for(startIndex: number, end: number, increment: number, actionOrTask?: Function | Task) {
         return Task.startNew(actionOrTask).for(startIndex, end, increment);
     }
 
@@ -86,22 +86,22 @@ class Task {
         return this;
     }
 
-    for(startIndex: number, end: number, increment) {
+    for(startIndex: number, end: number, increment: number = 1) {
         if (this.tasks && this.tasks.length > 0) {
             const tasks = [...this.tasks];
             this.tasks = [];
-            for (let index = startIndex; index < end; index += increment) {
-                this.next((...args) => {
+            this.next((...args: []) => {
+                for (let index = startIndex; index < end; index += increment) {
                     tasks.forEach(v => v.run(...args, index));
-                });
-            }
+                }
+            });
         }
         else {
-            for (let index = startIndex; index < end; index += increment) {
-                this.next((...args) => {
+            this.next((...args: []) => {
+                for (let index = startIndex; index < end; index += increment) {
                     this.action && this.action(...args, index);
-                });
-            }
+                }
+            });
             this.tasks.shift();
         }
         return this;
@@ -126,6 +126,10 @@ class Task {
         });
         return this;
     }
+
+    invoke(...args: any[]) {
+        return new Task(() => this.run(...args));
+    }
 }
 
 // Hello world
@@ -133,7 +137,7 @@ const log = Task.startNew(console.log);
 log.run("Hello").run("World");
 
 // For loop
-Task.for(0, 10, 1, log.startNew()).run();
+log.startNew().for(0, 10, 1).run();
 
 // Bubble sort
 const exchange = Task.startNew((array: [], i: number, j: number) => {
@@ -141,7 +145,8 @@ const exchange = Task.startNew((array: [], i: number, j: number) => {
 });
 
 const bubble = Task.startNew((array: []) => {
-    Task.for(0, array.length, 1, Task.for(0, array.length, 1, exchange.startNew().next(log))).next(() => log.run("最终结果：")).next(log).run(array);
+    exchange.startNew().for(0, array.length).for(0, array.length).run(array);
 });
 
-bubble.run([4, 0, 1, 5, 3, 2]);
+const output = bubble.startNew().next(log.invoke("The sorting result:")).next(log);
+output.run([4, 0, 1, 5, 3, 2]);
